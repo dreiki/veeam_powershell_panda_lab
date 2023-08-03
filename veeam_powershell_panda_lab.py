@@ -5,12 +5,12 @@ from datetime import datetime
 MODULE_LOGGER = logging.getLogger()
 
 def last_restore_point_filter(file_name,less_column=False, further_filter=True):
-    """
+    '''
     Function to filter csv generated from Get-VBRRestorepoint. 
     It will produce new csv that only contain latest restore point of each VM/Workload.
     By default will generate a csv with the same column outputted from Get-VBRRestorepoint command.
     Can also generate csv with only VM Name and Creation Time column if less_column argument passed as True.
-    """
+    '''
     MODULE_LOGGER.info('Will process file: \n%s',file_name)
     try:
         data_frame = pandas.read_csv(file_name)
@@ -27,9 +27,9 @@ def last_restore_point_filter(file_name,less_column=False, further_filter=True):
         filtered_data.sort_values(by='VmName', ascending=True, inplace=True)
         filtered_data.reset_index(drop=True, inplace=True)
         if less_column == True:
-            filtered_data[['VmName', 'CreationTime']].to_csv(f"{file_name}-filtered-less.csv", index=False)
-        filtered_data.to_csv(f"{file_name}-filtered-full.csv", index=False)
-
+            return filtered_data[['VmName', 'CreationTime']].to_csv(f'{file_name}-filtered-less.csv', index=False)
+        else:
+            return filtered_data.to_csv(f'{file_name}-filtered-full.csv', index=False)
     except FileNotFoundError as error:
         MODULE_LOGGER.warning('File not found: \n%s', error)
         MODULE_LOGGER.info('Will skip file: \n%s', file_name)
@@ -37,6 +37,17 @@ def last_restore_point_filter(file_name,less_column=False, further_filter=True):
         MODULE_LOGGER.warning('An unexpected error occurred: \n%s', error)
         MODULE_LOGGER.info('Will skip file: \n%s', file_name)
 
+def filtered_restore_point_merge(file_list):
+    dataframes_list = []
+    
+    for file in file_list:
+        MODULE_LOGGER.info('Will process file: \n%s',file)
+        dataframe = pandas.read_csv(file)
+        dataframe['SourceFile'] = file
+        dataframes_list.append(dataframe)
+    
+    combined_dataframe = pandas.concat(dataframes_list, ignore_index=True)
+    combined_dataframe.to_csv(f'restore-point-per-{datetime.now().strftime("%H.%M-%d-%m-%Y")}-combined.csv', index=False)
 
 if __name__ == '__main__':
     current_time = datetime.now()
@@ -55,8 +66,11 @@ if __name__ == '__main__':
     except (FileNotFoundError, PermissionError) as error:
         MODULE_LOGGER.warning('File and path related error occured: \n%s', error)
         MODULE_LOGGER.info('Program will not log to file')
+    except Exception as error:
+        MODULE_LOGGER.warning('Unexpected error occured: \n%s', error)
+        MODULE_LOGGER.info('Program will not log to file')
 
-    MODULE_LOGGER.info('Script called directly started at: %s', current_time.strftime("%H:%M %d-%m-%Y"))
+    MODULE_LOGGER.info('Script called directly started at: %s', current_time.strftime('%H:%M %d-%m-%Y'))
 
     file_list = [
         # 'dataAllPointF1Sby.csv',
@@ -68,4 +82,4 @@ if __name__ == '__main__':
     for file_name in file_list:
         last_restore_point_filter(file_name,True)
 
-    MODULE_LOGGER.info('Script finished at : %s', current_time.strftime("%H:%M %d-%m-%Y"))
+    MODULE_LOGGER.info('Script finished at : %s', current_time.strftime('%H:%M %d-%m-%Y'))
